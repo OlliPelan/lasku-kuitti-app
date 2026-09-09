@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tietosuojalauseke</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 font-sans pb-10 flex flex-col min-h-screen">
+
+    <div class="max-w-2xl mx-auto w-full flex-grow">
+        <!-- Yläpalkki -->
+        <div class="flex justify-between items-center mt-2 mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Tietosuojalauseke</h1>
+            <button onclick="history.back()" class="text-sm text-blue-600 font-medium hover:underline outline-none">← Palaa takaisin</button>
+        </div>
+
+        <!-- Tietosuojasisältö -->
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-200 space-y-6 text-sm text-gray-700 leading-relaxed">
+            
+            <section>
+                <h2 class="text-lg font-bold text-gray-900 mb-2">1. Rekisterinpitäjä ja sovelluksen tarkoitus</h2>
+                <p>Tämä sovellus on työkalu laskujen ja kuittien luomiseen sekä hallinnointiin. Rekisterinpitäjänä toimii kukin sovelluksen käyttäjä (laskuttaja/myyjä) oman asiakasdatansa osalta. Sovelluksen tarjoaja ("OK AV") vastaa ainoastaan teknisestä alustasta ja tietojen turvallisesta tallentamisesta.</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-bold text-gray-900 mb-2">2. Mitä tietoja keräämme?</h2>
+                <p>Sovelluksen perustoimintojen takaamiseksi tallennamme käyttäjän syöttämiä tietoja tietokantaan. Näitä ovat:</p>
+                <ul class="list-disc pl-5 mt-2 space-y-1">
+                    <li><strong>Käyttäjätili:</strong> Sähköpostiosoite ja salasanan tiiviste (salattu).</li>
+                    <li><strong>Omat tiedot:</strong> Käyttäjän syöttämä nimi/yritys, osoite, Y-tunnus ja tilinumero (IBAN).</li>
+                    <li><strong>Asiakasrekisteri:</strong> Laskutusasiakkaiden nimet, osoitteet ja Y-tunnukset.</li>
+                    <li><strong>Lasku- ja kuittiarkisto:</strong> Tallennettujen dokumenttien rivitiedot (hinnat, kuvaukset, alv, päivämäärät ja viitenumerot).</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-bold text-gray-900 mb-2">3. Tietojen suojaus, säilytys ja kolmannet osapuolet</h2>
+                <p>Kaikki tiedot tallennetaan turvallisesti Googlen tuottamaan Cloud Firestore -pilvipalveluun (Firebase). Tietokanta on suojattu tiukoilla turvasäännöillä, jotka takaavat sen, että <strong>jokainen käyttäjä näkee ja voi käsitellä ainoastaan omalla käyttäjätunnuksellaan (UID) luotuja tietoja</strong>. Tietoja ei luovuteta ulkopuolisille, eikä niitä käytetä markkinointitarkoituksiin.</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-bold text-gray-900 mb-2">4. Käyttäjän oikeudet ja tietojen poistaminen</h2>
+                <p>Käyttäjällä on täysi hallinta omiin ja asiakkaidensa tietoihin. Käyttäjä voi milloin tahansa sovelluksen käyttöliittymän kautta:</p>
+                <ul class="list-disc pl-5 mt-2 space-y-1">
+                    <li>Tarkastella tallennettuja tietojaan.</li>
+                    <li>Muokata "Omat tiedot" -osion kautta omia laskutustietojaan.</li>
+                    <li>Poistaa yksittäisiä asiakkaita tai arkistoituja kuitteja ja laskuja pysyvästi tietokannasta.</li>
+                </ul>
+                <p class="mt-2">Koko käyttäjätilin ja kaiken siihen liittyvän datan poistamiseksi käyttäjä voi lopettaa sovelluksen käytön tai pyytää tilin poistoa ylläpidolta.</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-bold text-gray-900 mb-2">5. Evästeet (Cookies)</h2>
+                <p>Sovellus ei käytä markkinointievästeitä. Käytämme ainoastaan välttämättömiä sessiotunnisteita, jotka mahdollistavat sisäänkirjautumisen tilan ylläpitämisen ja sovelluksen turvallisen käytön selaimessa (Firebase Authentication).</p>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="w-full text-center mt-8 mb-4 text-xs text-gray-500">
+        <a href="tietosuoja.html" class="hover:text-blue-600 hover:underline transition">Tietosuojalauseke</a>
+        <p class="mt-1">&copy; OK AV 2026</p>
+    </footer>
+
+</body>
+</html>

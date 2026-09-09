@@ -3,40 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Laskuarkisto</title>
+    <title>Arkisto</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- LISÄTTY: PDF-kirjasto -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="bg-gray-100 p-4 font-sans pb-10">
 
     <div class="max-w-2xl mx-auto space-y-6">
-        <!-- Yläpalkki -->
-        <div class="flex justify-between items-center mt-2 flex-wrap gap-2">
-            <h1 class="text-2xl font-bold text-gray-800">Laskuarkisto</h1>
-            <div class="flex gap-3 items-center">
-                <a href="javascript:history.back()" class="text-sm text-blue-600 font-medium hover:underline">← Takaisin</a>            
+        <!-- Yläpalkki ja navigointi -->
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 mb-6 gap-4">
+            <h1 class="text-2xl font-bold text-gray-800">Arkisto</h1>
+            
+            <div class="flex gap-3 items-center flex-wrap">
+                <a href="laskutus.html" class="text-sm text-blue-600 font-medium hover:underline">Lasku</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <a href="kuitti.html" class="text-sm text-blue-600 font-medium hover:underline">Kuitti</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <a href="omat_tiedot.html" class="text-sm text-blue-600 font-medium hover:underline">Omat tiedot</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <a href="asiakkaat.html" class="text-sm text-blue-600 font-medium hover:underline">Asiakkaat</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <button id="kirjauduUlosBtn" class="text-sm text-red-500 font-medium hover:underline outline-none">Kirjaudu ulos</button>
             </div>
         </div>
 
         <!-- Arkistolista -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Kaikki laskut</h2>
+                <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Kaikki dokumentit</h2>
                 <div class="text-sm text-gray-500">
-                    <span id="laskutYhteensa">0</span> laskua
+                    <span id="dokumentitYhteensa">0</span> kpl
                 </div>
             </div>
             
-            <div id="laskuLista" class="space-y-3">
-                <p class="text-sm text-gray-500 italic" id="ladataanTeksti">Ladataan laskuja...</p>
-                <!-- Laskut luodaan tänne -->
+            <div id="arkistoLista" class="space-y-4">
+                <p class="text-sm text-gray-500 italic" id="ladataanTeksti">Ladataan arkistoa...</p>
+                <!-- Laskut ja kuitit generoidaan tänne -->
             </div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
-        import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, getDoc, updateDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
 
         // --- LISÄÄ OMA FIREBASE CONFIG TÄHÄN ---
         const firebaseConfig = {
@@ -61,80 +76,135 @@
         const db = getFirestore(app);
 
         let currentUid = null;
-        const lista = document.getElementById('laskuLista');
-        const ladataanTeksti = document.getElementById('ladataanTeksti');
-        const laskutYhteensa = document.getElementById('laskutYhteensa');
+        let arkistoDataList = []; // Tallennetaan välimuistiin PDF-luontia varten
+        let myyjanTiedot = { nimi: '', osoite: '', ytunnus: '', iban: '' };
 
-        // TARKISTETAAN KIRJAUTUMINEN
-        onAuthStateChanged(auth, (user) => {
+        const lista = document.getElementById('arkistoLista');
+        const ladataanTeksti = document.getElementById('ladataanTeksti');
+        const dokumentitYhteensa = document.getElementById('dokumentitYhteensa');
+
+        // 1. TARKISTETAAN KIRJAUTUMINEN JA Ladataan Omat tiedot
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUid = user.uid;
-                haeLaskut();
+                await lataaMyyjanTiedot();
+                haeArkisto();
             } else {
                 window.location.href = "kirjautuminen.html";
             }
         });
 
-        // HAE LASKUT
-        async function haeLaskut() {
+        // ULOSKIRJAUTUMINEN
+        document.getElementById('kirjauduUlosBtn').addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        // HAE OMAT TIEDOT (Käytetään PDF:n ylätunnisteessa)
+        async function lataaMyyjanTiedot() {
+            try {
+                const userDoc = await getDoc(doc(db, "users", currentUid));
+                if (userDoc.exists()) {
+                    myyjanTiedot = userDoc.data();
+                }
+            } catch (error) {
+                console.error("Virhe omien tietojen latauksessa:", error);
+            }
+        }
+
+        // HAE LASKUT JA KUITIT
+        async function haeArkisto() {
             if (!currentUid) return;
             try {
-                const q = query(collection(db, "invoices"), where("uid", "==", currentUid));
-                const querySnapshot = await getDocs(q);
+                const laskuQuery = query(collection(db, "invoices"), where("uid", "==", currentUid));
+                const kuittiQuery = query(collection(db, "receipts"), where("uid", "==", currentUid));
+                
+                const [laskuSnapshot, kuittiSnapshot] = await Promise.all([
+                    getDocs(laskuQuery),
+                    getDocs(kuittiQuery)
+                ]);
                 
                 lista.innerHTML = ""; 
-                let laskuData = [];
+                arkistoDataList = []; // Tyhjennetään
 
-                if (querySnapshot.empty) {
-                    lista.innerHTML = '<p class="text-sm text-gray-500 italic">Ei tallennettuja laskuja.</p>';
-                    laskutYhteensa.innerText = "0";
+                laskuSnapshot.forEach((dokumentti) => {
+                    arkistoDataList.push({ id: dokumentti.id, tyyppi: 'lasku', ...dokumentti.data() });
+                });
+
+                kuittiSnapshot.forEach((dokumentti) => {
+                    arkistoDataList.push({ id: dokumentti.id, tyyppi: 'kuitti', ...dokumentti.data() });
+                });
+
+                if (arkistoDataList.length === 0) {
+                    lista.innerHTML = '<p class="text-sm text-gray-500 italic">Arkisto on tyhjä.</p>';
+                    dokumentitYhteensa.innerText = "0";
                     return;
                 }
 
-                // Kerätään data arrayhin järjestämistä varten
-                querySnapshot.forEach((dokumentti) => {
-                    laskuData.push({ id: dokumentti.id, ...dokumentti.data() });
-                });
-
-                // Järjestetään uusimmat ensin (luotuPvm on Firestore Timestamp)
-                laskuData.sort((a, b) => b.luotuPvm.toDate() - a.luotuPvm.toDate());
-                laskutYhteensa.innerText = laskuData.length;
+                // Järjestetään aikaleiman mukaan (uusin ensin)
+                arkistoDataList.sort((a, b) => b.luotuPvm.toDate() - a.luotuPvm.toDate());
+                dokumentitYhteensa.innerText = arkistoDataList.length;
 
                 // Renderöidään lista
-                laskuData.forEach((lasku) => {
+                arkistoDataList.forEach((item) => {
                     const kortti = document.createElement('div');
-                    kortti.className = "p-4 bg-gray-50 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3";
+                    kortti.className = "p-4 bg-gray-50 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4";
                     
-                    const muotoiltuSumma = lasku.yhteensa.toFixed(2).replace('.', ',') + ' €';
+                    const muotoiltuSumma = item.yhteensa.toFixed(2).replace('.', ',') + ' €';
                     
-                    // Määritetään tilan väri ja teksti
-                    const onMaksettu = lasku.status === 'maksettu';
-                    const tilaBadge = onMaksettu 
-                        ? `<span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg uppercase">Maksettu</span>`
-                        : `<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-lg uppercase">Avoin</span>`;
-                    
-                    const tilaNappi = onMaksettu
-                        ? `<button class="text-sm text-gray-500 hover:text-gray-700 hover:underline" onclick="vaihdaTila('${lasku.id}', 'avoin')">Palauta avoimeksi</button>`
-                        : `<button class="text-sm text-blue-600 font-medium hover:text-blue-800 hover:underline" onclick="vaihdaTila('${lasku.id}', 'maksettu')">Merkitse maksetuksi</button>`;
+                    if (item.tyyppi === 'lasku') {
+                        // LASKU
+                        const onMaksettu = item.status === 'maksettu';
+                        const tilaBadge = onMaksettu 
+                            ? `<span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg uppercase">Maksettu</span>`
+                            : `<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-lg uppercase">Avoin</span>`;
+                        
+                        const tilaNappi = onMaksettu
+                            ? `<button class="text-sm text-gray-500 hover:text-gray-700 hover:underline" onclick="vaihdaLaskunTila('${item.id}', 'avoin')">Palauta avoimeksi</button>`
+                            : `<button class="text-sm text-blue-600 font-medium hover:text-blue-800 hover:underline" onclick="vaihdaLaskunTila('${item.id}', 'maksettu')">Merkitse maksetuksi</button>`;
 
-                    kortti.innerHTML = `
-                        <div>
-                            <div class="flex items-center gap-2 mb-1">
-                                <p class="font-bold text-gray-800">Lasku #${lasku.laskuNro}</p>
-                                ${tilaBadge}
+                        kortti.innerHTML = `
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <p class="font-bold text-gray-800">Lasku #${item.laskuNro}</p>
+                                    ${tilaBadge}
+                                </div>
+                                <p class="text-sm text-gray-600">${item.asiakas}</p>
+                                <p class="text-xs text-gray-500 mt-1">Eräpäivä: ${muotoilePvmTekstiksi(item.erapaiva)} <span class="mx-1">|</span> Viite: ${item.viitenumero}</p>
                             </div>
-                            <p class="text-sm text-gray-600">${lasku.asiakas}</p>
-                            <p class="text-xs text-gray-500 mt-1">Eräpäivä: ${lasku.erapaiva} <span class="mx-1">|</span> Viite: ${lasku.viitenumero}</p>
-                        </div>
-                        <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2">
-                            <p class="font-bold text-lg text-gray-800">${muotoiltuSumma}</p>
-                            <div class="flex items-center gap-3">
-                                ${tilaNappi}
-                                <span class="text-gray-300">|</span>
-                                <button class="text-sm text-red-500 hover:underline" onclick="poistaLasku('${lasku.id}')">Poista</button>
+                            <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2">
+                                <p class="font-bold text-lg text-gray-800">${muotoiltuSumma}</p>
+                                <div class="flex items-center gap-3">
+                                    <button class="text-sm font-bold text-gray-500 hover:text-blue-600 hover:underline" onclick="lataaPDF('${item.id}')">↓ Lataa PDF</button>
+                                    <span class="text-gray-300">|</span>
+                                    ${tilaNappi}
+                                    <span class="text-gray-300">|</span>
+                                    <button class="text-sm text-red-500 hover:underline" onclick="poistaDokumentti('${item.id}', 'invoices')">Poista</button>
+                                </div>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    } else {
+                        // KUITTI
+                        kortti.innerHTML = `
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <p class="font-bold text-gray-800">Kuitti #${item.kuittiNro}</p>
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-lg uppercase">Kuitti</span>
+                                </div>
+                                <p class="text-sm text-gray-600">${item.ostaja}</p>
+                                <p class="text-xs text-gray-500 mt-1">Maksettu: ${muotoilePvmTekstiksi(item.tapahtumaPvm)} <span class="mx-1">|</span> Tapa: ${item.maksutapa}</p>
+                            </div>
+                            <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2">
+                                <p class="font-bold text-lg text-gray-800">${muotoiltuSumma}</p>
+                                <div class="flex items-center gap-3">
+                                    <button class="text-sm font-bold text-gray-500 hover:text-blue-600 hover:underline" onclick="lataaPDF('${item.id}')">↓ Lataa PDF</button>
+                                    <span class="text-gray-300">|</span>
+                                    <span class="text-sm text-green-600 font-medium">✓ Maksettu</span>
+                                    <span class="text-gray-300">|</span>
+                                    <button class="text-sm text-red-500 hover:underline" onclick="poistaDokumentti('${item.id}', 'receipts')">Poista</button>
+                                </div>
+                            </div>
+                        `;
+                    }
                     lista.appendChild(kortti);
                 });
             } catch (error) {
@@ -143,30 +213,250 @@
             }
         }
 
-        // VAIHDA LASKUN TILAA (Avoin <-> Maksettu)
-        window.vaihdaTila = async (id, uusiTila) => {
+        // APUFUNKTIO PÄIVÄMÄÄRÄLLE YYYY-MM-DD -> DD.MM.YYYY
+        function muotoilePvmTekstiksi(dateString) {
+            if (!dateString) return "";
+            if (dateString.includes('-')) {
+                const [year, month, day] = dateString.split('-');
+                return `${day}.${month}.${year}`;
+            }
+            return dateString;
+        }
+
+        // VAIHDA LASKUN TILAA
+        window.vaihdaLaskunTila = async (id, uusiTila) => {
             try {
-                await updateDoc(doc(db, "invoices", id), {
-                    status: uusiTila
-                });
-                haeLaskut(); // Päivitetään lista heti
+                await updateDoc(doc(db, "invoices", id), { status: uusiTila });
+                haeArkisto(); 
             } catch (error) {
-                console.error("Virhe tilan vaihdossa:", error);
-                alert("Tilan päivitys epäonnistui.");
+                console.error("Virhe:", error);
             }
         };
 
-        // POISTA LASKU
-        window.poistaLasku = async (id) => {
-            if(confirm("Haluatko varmasti poistaa tämän laskun arkistosta? (Tämä ei tuhoa laitteellesi aiemmin ladattua PDF-tiedostoa)")) {
+        // POISTA DOKUMENTTI
+        window.poistaDokumentti = async (id, kokoelma) => {
+            if(confirm("Haluatko varmasti poistaa tämän asiakirjan pysyvästi?")) {
                 try {
-                    await deleteDoc(doc(db, "invoices", id));
-                    haeLaskut(); 
+                    await deleteDoc(doc(db, kokoelma, id));
+                    haeArkisto(); 
                 } catch (error) {
                     console.error("Virhe poistossa:", error);
                 }
             }
         };
+
+        // --- 2. UUDELLEENPIIRRÄ PDF ARKISTOSTA ---
+        window.lataaPDF = (id) => {
+            const item = arkistoDataList.find(i => i.id === id);
+            if (!item) return;
+
+            if (item.tyyppi === 'lasku') {
+                generoiLaskuPDF(item);
+            } else {
+                generoiKuittiPDF(item);
+            }
+        };
+
+        function generoiLaskuPDF(item) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+            const muotoileSumma = (s) => (s || 0).toFixed(2).replace('.', ',') + ' EUR';
+            
+            // Haetaan luontipäivä Firebasen Timestampista
+            let luontiPvm = "";
+            if (item.luotuPvm) {
+                const d = item.luotuPvm.toDate();
+                luontiPvm = `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+            }
+
+            const laskuttaja = myyjanTiedot.nimi || 'Laskuttajan nimi puuttuu';
+            const laskuttaja_osoite = myyjanTiedot.osoite || '';
+            const laskuttaja_yt = myyjanTiedot.ytunnus || '';
+            const iban = myyjanTiedot.iban || 'Ei ilmoitettu';
+
+            doc.setFontSize(24);
+            doc.setTextColor(37, 99, 235);
+            doc.setFont("helvetica", "bold");
+            doc.text("LASKU", 20, 30);
+
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Pvm: ${luontiPvm}`, 190, 23, { align: "right" });
+            doc.text(`Laskun nro: ${item.laskuNro}`, 190, 29, { align: "right" });
+            doc.text(`Erapaiva: ${muotoilePvmTekstiksi(item.erapaiva)}`, 190, 35, { align: "right" });
+
+            doc.setDrawColor(37, 99, 235);
+            doc.setLineWidth(0.5);
+            doc.line(20, 42, 190, 42);
+
+            doc.setFontSize(9);
+            doc.setTextColor(107, 114, 128);
+            doc.setFont("helvetica", "bold");
+            doc.text("LASKUTTAJA", 20, 52);
+            doc.text("ASIAKAS", 105, 52);
+
+            doc.setFontSize(11);
+            doc.setTextColor(17, 24, 39);
+            
+            let lY = 58;
+            doc.text(laskuttaja, 20, lY);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            if (laskuttaja_osoite) { lY += 5; doc.text(laskuttaja_osoite, 20, lY); }
+            if (laskuttaja_yt) { lY += 5; doc.text(`Y-tunnus: ${laskuttaja_yt}`, 20, lY); }
+
+            let aY = 58;
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text(item.asiakas || 'Asiakas', 105, aY);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            if (item.asiakasOsoite) { aY += 5; doc.text(item.asiakasOsoite, 105, aY); }
+            if (item.asiakasYtunnus) { aY += 5; doc.text(`Y-tunnus: ${item.asiakasYtunnus}`, 105, aY); }
+
+            doc.setFillColor(243, 244, 246);
+            doc.rect(20, 82, 170, 10, "F");
+            doc.setFont("helvetica", "bold");
+            doc.text("Pvm", 23, 89);
+            doc.text("Kuvaus", 50, 89);
+            doc.text("Veroton hinta", 187, 89, { align: "right" });
+
+            doc.setFont("helvetica", "normal");
+            if (item.tyoPvm) doc.text(muotoilePvmTekstiksi(item.tyoPvm), 23, 100);
+            doc.text(item.kuvaus || '', 50, 100);
+            doc.text(muotoileSumma(item.verotonHinta), 187, 100, { align: "right" });
+            
+            doc.setDrawColor(229, 231, 235);
+            doc.line(20, 106, 190, 106);
+
+            doc.setFontSize(11);
+            doc.text(`ALV (${(item.alvProsentti || 0).toString().replace('.', ',')} %):`, 130, 118);
+            doc.text(muotoileSumma(item.alvSumma), 187, 118, { align: "right" });
+
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text("Yhteensa:", 130, 128);
+            doc.text(muotoileSumma(item.yhteensa), 187, 128, { align: "right" });
+            
+            doc.setDrawColor(37, 99, 235);
+            doc.line(130, 132, 190, 132);
+
+            doc.setDrawColor(229, 231, 235);
+            doc.line(20, 270, 190, 270);
+            
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(107, 114, 128);
+            doc.text(`Saaja: ${laskuttaja}`, 20, 277);
+            doc.text(`IBAN: ${iban}`, 20, 282);
+            
+            doc.setFont("helvetica", "bold");
+            doc.text(`Viitenumero: ${item.viitenumero || ''}`, 190, 282, { align: "right" });
+
+            const tiedostonimi = 'Lasku_' + (item.asiakas || 'Kopio').replace(/\s+/g, '_') + '.pdf';
+            doc.save(tiedostonimi);
+        }
+
+        function generoiKuittiPDF(item) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+            const muotoileSumma = (s) => (s || 0).toFixed(2).replace('.', ',') + ' EUR';
+
+            let luontiPvm = "";
+            if (item.luotuPvm) {
+                const d = item.luotuPvm.toDate();
+                luontiPvm = `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+            }
+
+            const myyja = myyjanTiedot.nimi || 'Myyjän nimi puuttuu';
+            const myyja_osoite = myyjanTiedot.osoite || '';
+            const myyja_yt = myyjanTiedot.ytunnus || '';
+
+            doc.setFontSize(24);
+            doc.setTextColor(37, 99, 235);
+            doc.setFont("helvetica", "bold");
+            doc.text("KUITTI", 20, 30);
+
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Pvm: ${luontiPvm}`, 190, 23, { align: "right" });
+            doc.text(`Kuitin nro: ${item.kuittiNro}`, 190, 29, { align: "right" });
+            doc.text(`Maksutapa: ${item.maksutapa || ''}`, 190, 35, { align: "right" });
+
+            doc.setDrawColor(37, 99, 235);
+            doc.setLineWidth(0.5);
+            doc.line(20, 42, 190, 42);
+
+            doc.setFontSize(9);
+            doc.setTextColor(107, 114, 128);
+            doc.setFont("helvetica", "bold");
+            doc.text("MYYJÄ", 20, 52);
+            doc.text("OSTAJA", 105, 52);
+
+            doc.setFontSize(11);
+            doc.setTextColor(17, 24, 39);
+            
+            let lY = 58;
+            doc.text(myyja, 20, lY);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            if (myyja_osoite) { lY += 5; doc.text(myyja_osoite, 20, lY); }
+            if (myyja_yt) { lY += 5; doc.text(`Y-tunnus: ${myyja_yt}`, 20, lY); }
+
+            let aY = 58;
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text(item.ostaja || 'Käteisasiakas', 105, aY);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            if (item.ostajaOsoite) { aY += 5; doc.text(item.ostajaOsoite, 105, aY); }
+            if (item.ostajaYtunnus) { aY += 5; doc.text(`Y-tunnus: ${item.ostajaYtunnus}`, 105, aY); }
+
+            doc.setFillColor(243, 244, 246);
+            doc.rect(20, 82, 170, 10, "F");
+            doc.setFont("helvetica", "bold");
+            doc.text("Pvm", 23, 89);
+            doc.text("Kuvaus", 50, 89);
+            doc.text("Veroton hinta", 187, 89, { align: "right" });
+
+            doc.setFont("helvetica", "normal");
+            if (item.tapahtumaPvm) doc.text(muotoilePvmTekstiksi(item.tapahtumaPvm), 23, 100);
+            doc.text(item.kuvaus || '', 50, 100);
+            doc.text(muotoileSumma(item.verotonHinta), 187, 100, { align: "right" });
+            
+            doc.setDrawColor(229, 231, 235);
+            doc.line(20, 106, 190, 106);
+
+            doc.setFontSize(11);
+            doc.text(`ALV (${(item.alvProsentti || 0).toString().replace('.', ',')} %):`, 130, 118);
+            doc.text(muotoileSumma(item.alvSumma), 187, 118, { align: "right" });
+
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text("Maksettu:", 130, 128);
+            doc.text(muotoileSumma(item.yhteensa), 187, 128, { align: "right" });
+            
+            doc.setDrawColor(37, 99, 235);
+            doc.line(130, 132, 190, 132);
+
+            doc.setDrawColor(229, 231, 235);
+            doc.line(20, 270, 190, 270);
+            
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(107, 114, 128);
+            
+            doc.text(myyja, 20, 277);
+            if (myyja_yt) { doc.text(`Y-tunnus: ${myyja_yt}`, 20, 282); }
+            
+            doc.setFont("helvetica", "bold");
+            doc.text("Kiitos asioinnista!", 190, 282, { align: "right" });
+
+            const tiedostonimi = 'Kuitti_' + (item.ostaja || 'Kopio').replace(/\s+/g, '_') + '.pdf';
+            doc.save(tiedostonimi);
+        }
     </script>
 </body>
 </html>

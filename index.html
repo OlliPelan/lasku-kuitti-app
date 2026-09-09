@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tervetuloa - Laskutusohjelma</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tarkistetaan heti, onko evästeet jo hyväksytty. 
+         Jos on, siirrytään suoraan kirjautumiseen ilman välähdystä. -->
+    <script>
+        if (localStorage.getItem('okav_evaste_valinta')) {
+            window.location.replace('kirjautuminen.html');
+        }
+    </script>
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen font-sans">
+
+    <!-- Pääsisältö, joka keskitetään pystysuunnassa -->
+    <div class="flex-grow flex items-center justify-center p-4">
+        
+        <div id="evasteKortti" class="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-gray-200 text-center opacity-0 transition-opacity duration-500">
+            
+            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
+                🍪
+            </div>
+            
+            <h1 class="text-2xl font-bold text-gray-800 mb-3">Evästeasetukset</h1>
+            
+            <p class="text-sm text-gray-600 mb-8 leading-relaxed">
+                Tervetuloa! Käytämme välttämättömiä evästeitä (session cookies) varmistaaksemme turvallisen sisäänkirjautumisen ja sovelluksen perustoiminnan. Voit halutessasi hyväksyä myös valinnaiset evästeet, joiden avulla voimme kehittää palvelua.
+            </p>
+            
+            <div class="space-y-3">
+                <button onclick="tallennaValinta('kaikki')" class="w-full bg-blue-600 text-white font-bold rounded-xl p-3.5 hover:bg-blue-700 active:bg-blue-800 transition shadow-sm">
+                    Hyväksy kaikki
+                </button>
+                
+                <button onclick="tallennaValinta('pakolliset')" class="w-full bg-gray-50 text-gray-700 font-bold border border-gray-200 rounded-xl p-3.5 hover:bg-gray-100 active:bg-gray-200 transition">
+                    Vain pakolliset
+                </button>
+            </div>
+
+            <div class="mt-6">
+                <a href="tietosuoja.html" class="text-xs text-gray-400 hover:text-blue-600 hover:underline transition">Lue lisää tietosuojasta</a>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="w-full text-center mt-auto mb-6 text-xs text-gray-500">
+        <a href="tietosuoja.html" class="hover:text-blue-600 hover:underline transition">Tietosuojalauseke</a>
+        <p class="mt-1">&copy; OK AV 2026</p>
+    </footer>
+
+    <script>
+        // Näytetään kortti pehmeällä animaatiolla, kun sivu on latautunut 
+        // (tämä estää ikävän välähdyksen, jos selain on hidas suorittamaan yläosan redirectin)
+        document.addEventListener("DOMContentLoaded", () => {
+            if (!localStorage.getItem('okav_evaste_valinta')) {
+                document.getElementById('evasteKortti').classList.remove('opacity-0');
+            }
+        });
+
+        // Tallennetaan valinta selaimeen ja siirrytään kirjautumiseen
+        function tallennaValinta(valinta) {
+            localStorage.setItem('okav_evaste_valinta', valinta);
+            window.location.href = 'kirjautuminen.html';
+        }
+    </script>
+</body>
+</html>
