@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kirjaudu - Laskutin</title>
+    <script>
+    // Estää iPhonen välimuistibugin "takaisin"-nappia käytettäessä
+    window.addEventListener("pageshow", function(event) {
+        if (event.persisted) {
+            window.location.reload();
+        }
+    });
+</script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
@@ -135,7 +143,7 @@
                 document.getElementById('nimi').required = true;
             } else {
                 otsikko.innerText = "Kirjaudu sisään";
-                alaotsikko.innerText = "Tervetuloa takaisin LaskutusPro-palveluun";
+                alaotsikko.innerText = "Tervetuloa takaisin Laskutin-palveluun";
                 toimintoBtn.innerText = "Kirjaudu";
                 vaihdaTilaBtn.innerText = "Ei tiliä? Luo uusi tili tästä.";
                 nimiKentta.classList.add('hidden');

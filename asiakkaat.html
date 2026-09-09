@@ -5,13 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Asiakasrekisteri</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        window.addEventListener("pageshow", function(event) {
+            if (event.persisted) window.location.reload();
+        });
+    </script>
 </head>
 <body class="bg-gray-100 p-4 font-sans pb-10">
 
     <div class="max-w-md mx-auto space-y-6">
-        <div class="flex justify-between items-center mt-2">
-            <h1 class="text-2xl font-bold text-gray-800">Asiakasrekisteri</h1>
-            <a href="javascript:history.back()" class="text-sm text-blue-600 font-medium hover:underline">← Takaisin</a>
+        <!-- Yläpalkki ja navigointi -->
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 mb-6 gap-4">
+            <h1 class="text-2xl font-bold text-gray-800">Asiakkaat</h1>
+            
+            <div class="flex gap-3 items-center flex-wrap">
+                <a href="laskutus.html" class="text-sm text-blue-600 font-medium hover:underline">Lasku</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                <a href="kuitti.html" class="text-sm text-blue-600 font-medium hover:underline">Kuitti</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                <a href="arkisto.html" class="text-sm text-blue-600 font-medium hover:underline">Arkisto</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                <a href="omat_tiedot.html" class="text-sm text-blue-600 font-medium hover:underline">Omat tiedot</a>
+            </div>
         </div>
 
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
@@ -45,7 +60,7 @@
         </div>
     </div>
     
-<!-- Footer -->
+    <!-- Footer -->
     <footer class="w-full text-center mt-8 mb-4 text-xs text-gray-500">
         <a href="tietosuoja.html" class="hover:text-blue-600 hover:underline transition">Tietosuojalauseke</a>
         <p class="mt-1">&copy; OK AV 2026</p>
@@ -85,18 +100,15 @@
         const tallennaBtn = document.getElementById('tallennaBtn');
         const ladataanTeksti = document.getElementById('ladataanTeksti');
 
-        // 1. TARKISTETAAN KIRJAUTUMINEN
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUid = user.uid;
                 haeAsiakkaat();
             } else {
-                // Jos ei kirjautunut, ohjataan kirjautumissivulle
                 window.location.href = "kirjautuminen.html";
             }
         });
 
-        // 2. HAE OIKEAN KÄYTTÄJÄN ASIAKKAAT
         async function haeAsiakkaat() {
             if (!currentUid) return;
             try {
@@ -122,17 +134,17 @@
                             ${data.osoite ? `<p class="text-xs text-gray-500">${data.osoite}</p>` : ''}
                             ${data.ytunnus ? `<p class="text-xs text-gray-500">Y-tunnus: ${data.ytunnus}</p>` : ''}
                         </div>
-                        <button class="text-red-500 text-sm font-medium p-2 hover:bg-red-50 rounded-lg transition" onclick="poistaAsiakas('${id}')">Poista</button>
+                        <button class="text-red-500 text-sm font-medium p-2 hover:bg-red-50 rounded-lg transition poista-btn" data-id="${id}">Poista</button>
                     `;
                     lista.appendChild(kortti);
                 });
             } catch (error) {
                 console.error("Virhe haussa:", error);
-                ladataanTeksti.innerText = "Virhe tietojen latauksessa.";
+                lista.innerHTML = "<p class='text-red-500'>Virhe tietojen latauksessa.</p>";
             }
         }
 
-        // 3. TALLENNA UUSI ASIAKAS (Yhdistetään currentUid:iin)
+        // TALLENNA UUSI ASIAKAS
         lomake.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!currentUid) return;
@@ -151,27 +163,44 @@
             try {
                 await addDoc(collection(db, "customers"), uusiAsiakas);
                 lomake.reset();
-                haeAsiakkaat(); 
+                
+                // Vihreä nappi
+                tallennaBtn.innerText = "Tallennettu!";
+                tallennaBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                tallennaBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+                
+                // Haetaan lista välittömästi uudelleen
+                await haeAsiakkaat(); 
+                
+                setTimeout(() => {
+                    tallennaBtn.innerText = "Tallenna asiakas";
+                    tallennaBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    tallennaBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    tallennaBtn.disabled = false;
+                }, 2000);
+
             } catch (error) {
                 alert("Virhe tallennuksessa!");
                 console.error(error);
-            } finally {
                 tallennaBtn.innerText = "Tallenna asiakas";
                 tallennaBtn.disabled = false;
             }
         });
 
-        // 4. POISTA ASIAKAS
-        window.poistaAsiakas = async (id) => {
-            if(confirm("Haluatko varmasti poistaa tämän asiakkaan?")) {
-                try {
-                    await deleteDoc(doc(db, "customers", id));
-                    haeAsiakkaat(); 
-                } catch (error) {
-                    console.error("Virhe poistossa:", error);
+        // Event delegation poistonapille (Toimii paremmin iOS:llä)
+        lista.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('poista-btn')) {
+                const id = e.target.getAttribute('data-id');
+                if(confirm("Haluatko varmasti poistaa tämän asiakkaan?")) {
+                    try {
+                        await deleteDoc(doc(db, "customers", id));
+                        haeAsiakkaat(); 
+                    } catch (error) {
+                        console.error("Virhe poistossa:", error);
+                    }
                 }
             }
-        };
+        });
     </script>
 </body>
 </html>
