@@ -7,20 +7,35 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
+        // Estää iPhonen Safari-selaimen välimuistibugin takaisin-pyyhkäisyssä
         window.addEventListener("pageshow", function(event) {
             if (event.persisted) window.location.reload();
         });
     </script>
 </head>
-<body class="bg-gray-100 p-4 font-sans pb-10">
+<body class="bg-gray-100 flex flex-col min-h-screen font-sans">
 
-    <div class="max-w-2xl mx-auto space-y-6">
+    <!-- Pääsisältö, joka venyy ja työntää footerin alas -->
+    <div class="max-w-2xl mx-auto w-full flex-grow p-4 space-y-6">
+        
         <!-- Yläpalkki ja navigointi -->
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 mb-6 gap-4">
             <h1 class="text-2xl font-bold text-gray-800">Arkisto</h1>
             
             <div class="flex gap-3 items-center flex-wrap">
-<a href="javascript:history.back()" class="text-sm text-blue-600 font-medium hover:underline">← Takaisin</a>
+                <a href="laskutus.html" class="text-sm text-blue-600 font-medium hover:underline">Lasku</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <a href="kuitti.html" class="text-sm text-blue-600 font-medium hover:underline">Kuitti</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <a href="omat_tiedot.html" class="text-sm text-blue-600 font-medium hover:underline">Omat tiedot</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <a href="asiakkaat.html" class="text-sm text-blue-600 font-medium hover:underline">Asiakkaat</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <button id="kirjauduUlosBtn" class="text-sm text-red-500 font-medium hover:underline outline-none">Kirjaudu ulos</button>
             </div>
         </div>
 
@@ -39,8 +54,8 @@
         </div>
     </div>
     
-    <!-- Footer -->
-    <footer class="w-full text-center mt-8 mb-4 text-xs text-gray-500">
+    <!-- Footer keskitettynä alas -->
+    <footer class="w-full text-center mt-auto mb-6 text-xs text-gray-500">
         <a href="tietosuoja.html" class="hover:text-blue-600 hover:underline transition">Tietosuojalauseke</a>
         <p class="mt-1">&copy; OK AV 2026</p>
     </footer>
@@ -79,6 +94,7 @@
         const lista = document.getElementById('arkistoLista');
         const dokumentitYhteensa = document.getElementById('dokumentitYhteensa');
 
+        // KIRJAUTUMISEN TARKISTUS
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUid = user.uid;
@@ -93,6 +109,7 @@
             signOut(auth);
         });
 
+        // HAE OMAT TIEDOT
         async function lataaMyyjanTiedot() {
             try {
                 const userDoc = await getDoc(doc(db, "users", currentUid));
@@ -104,6 +121,7 @@
             }
         }
 
+        // HAE ARKISTO
         async function haeArkisto() {
             if (!currentUid) return;
             try {
@@ -139,7 +157,8 @@
                     const kortti = document.createElement('div');
                     kortti.className = "p-4 bg-gray-50 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4";
                     
-                    const muotoiltuSumma = item.yhteensa.toFixed(2).replace('.', ',') + ' €';
+                    const summaTurvallinen = item.yhteensa || 0;
+                    const muotoiltuSumma = summaTurvallinen.toFixed(2).replace('.', ',') + ' €';
                     
                     if (item.tyyppi === 'lasku') {
                         const onMaksettu = item.status === 'maksettu';
@@ -147,6 +166,7 @@
                             ? `<span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg uppercase">Maksettu</span>`
                             : `<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-lg uppercase">Avoin</span>`;
                         
+                        // Napit käyttävät nyt data-action attribuutteja inline onclickin sijaan
                         const tilaNappi = onMaksettu
                             ? `<button class="text-sm text-gray-500 hover:text-gray-700 hover:underline outline-none" data-action="tila" data-id="${item.id}" data-tila="avoin">Palauta avoimeksi</button>`
                             : `<button class="text-sm text-blue-600 font-medium hover:text-blue-800 hover:underline outline-none" data-action="tila" data-id="${item.id}" data-tila="maksettu">Merkitse maksetuksi</button>`;
@@ -201,10 +221,10 @@
             }
         }
 
-        // TÄMÄ ON UUSI POMMINVARMA TAPA KÄSITELLÄ NAPPEJA IPHONELLA
+        // --- IPHONE-YHTEENSOPIVA NAPPIEN KÄSITTELIJÄ (Event Delegation) ---
         lista.addEventListener('click', async (e) => {
             const btn = e.target.closest('button');
-            if (!btn) return; // Jos klikattiin tyhjää tilaa, ohitetaan
+            if (!btn) return; // Jos klikattiin tyhjää kohtaa, ohitetaan
             
             const action = btn.getAttribute('data-action');
             const id = btn.getAttribute('data-id');
@@ -235,6 +255,7 @@
             }
         });
 
+        // APUFUNKTIO PÄIVÄMÄÄRÄLLE YYYY-MM-DD -> DD.MM.YYYY
         function muotoilePvmTekstiksi(dateString) {
             if (!dateString) return "";
             if (dateString.includes('-')) {
