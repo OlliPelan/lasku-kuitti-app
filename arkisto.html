@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Laskuarkisto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 font-sans pb-10">
+
+    <div class="max-w-2xl mx-auto space-y-6">
+        <!-- Yläpalkki -->
+        <div class="flex justify-between items-center mt-2 flex-wrap gap-2">
+            <h1 class="text-2xl font-bold text-gray-800">Laskuarkisto</h1>
+            <div class="flex gap-3 items-center">
+                <a href="javascript:history.back()" class="text-sm text-blue-600 font-medium hover:underline">← Takaisin</a>            
+            </div>
+        </div>
+
+        <!-- Arkistolista -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Kaikki laskut</h2>
+                <div class="text-sm text-gray-500">
+                    <span id="laskutYhteensa">0</span> laskua
+                </div>
+            </div>
+            
+            <div id="laskuLista" class="space-y-3">
+                <p class="text-sm text-gray-500 italic" id="ladataanTeksti">Ladataan laskuja...</p>
+                <!-- Laskut luodaan tänne -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+        // --- LISÄÄ OMA FIREBASE CONFIG TÄHÄN ---
+        const firebaseConfig = {
+
+  apiKey: "AIzaSyCLV33Uqrue9BnvnSHEHSxlm6metKkpC5w",
+
+  authDomain: "laskutin-bdba4.firebaseapp.com",
+
+  projectId: "laskutin-bdba4",
+
+  storageBucket: "laskutin-bdba4.firebasestorage.app",
+
+  messagingSenderId: "1042914066308",
+
+  appId: "1:1042914066308:web:5c7b6dc27579203c9da7d1"
+
+};
+
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUid = null;
+        const lista = document.getElementById('laskuLista');
+        const ladataanTeksti = document.getElementById('ladataanTeksti');
+        const laskutYhteensa = document.getElementById('laskutYhteensa');
+
+        // TARKISTETAAN KIRJAUTUMINEN
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUid = user.uid;
+                haeLaskut();
+            } else {
+                window.location.href = "kirjautuminen.html";
+            }
+        });
+
+        // HAE LASKUT
+        async function haeLaskut() {
+            if (!currentUid) return;
+            try {
+                const q = query(collection(db, "invoices"), where("uid", "==", currentUid));
+                const querySnapshot = await getDocs(q);
+                
+                lista.innerHTML = ""; 
+                let laskuData = [];
+
+                if (querySnapshot.empty) {
+                    lista.innerHTML = '<p class="text-sm text-gray-500 italic">Ei tallennettuja laskuja.</p>';
+                    laskutYhteensa.innerText = "0";
+                    return;
+                }
+
+                // Kerätään data arrayhin järjestämistä varten
+                querySnapshot.forEach((dokumentti) => {
+                    laskuData.push({ id: dokumentti.id, ...dokumentti.data() });
+                });
+
+                // Järjestetään uusimmat ensin (luotuPvm on Firestore Timestamp)
+                laskuData.sort((a, b) => b.luotuPvm.toDate() - a.luotuPvm.toDate());
+                laskutYhteensa.innerText = laskuData.length;
+
+                // Renderöidään lista
+                laskuData.forEach((lasku) => {
+                    const kortti = document.createElement('div');
+                    kortti.className = "p-4 bg-gray-50 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3";
+                    
+                    const muotoiltuSumma = lasku.yhteensa.toFixed(2).replace('.', ',') + ' €';
+                    
+                    // Määritetään tilan väri ja teksti
+                    const onMaksettu = lasku.status === 'maksettu';
+                    const tilaBadge = onMaksettu 
+                        ? `<span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg uppercase">Maksettu</span>`
+                        : `<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-lg uppercase">Avoin</span>`;
+                    
+                    const tilaNappi = onMaksettu
+                        ? `<button class="text-sm text-gray-500 hover:text-gray-700 hover:underline" onclick="vaihdaTila('${lasku.id}', 'avoin')">Palauta avoimeksi</button>`
+                        : `<button class="text-sm text-blue-600 font-medium hover:text-blue-800 hover:underline" onclick="vaihdaTila('${lasku.id}', 'maksettu')">Merkitse maksetuksi</button>`;
+
+                    kortti.innerHTML = `
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <p class="font-bold text-gray-800">Lasku #${lasku.laskuNro}</p>
+                                ${tilaBadge}
+                            </div>
+                            <p class="text-sm text-gray-600">${lasku.asiakas}</p>
+                            <p class="text-xs text-gray-500 mt-1">Eräpäivä: ${lasku.erapaiva} <span class="mx-1">|</span> Viite: ${lasku.viitenumero}</p>
+                        </div>
+                        <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2">
+                            <p class="font-bold text-lg text-gray-800">${muotoiltuSumma}</p>
+                            <div class="flex items-center gap-3">
+                                ${tilaNappi}
+                                <span class="text-gray-300">|</span>
+                                <button class="text-sm text-red-500 hover:underline" onclick="poistaLasku('${lasku.id}')">Poista</button>
+                            </div>
+                        </div>
+                    `;
+                    lista.appendChild(kortti);
+                });
+            } catch (error) {
+                console.error("Virhe haussa:", error);
+                ladataanTeksti.innerText = "Virhe tietojen latauksessa.";
+            }
+        }
+
+        // VAIHDA LASKUN TILAA (Avoin <-> Maksettu)
+        window.vaihdaTila = async (id, uusiTila) => {
+            try {
+                await updateDoc(doc(db, "invoices", id), {
+                    status: uusiTila
+                });
+                haeLaskut(); // Päivitetään lista heti
+            } catch (error) {
+                console.error("Virhe tilan vaihdossa:", error);
+                alert("Tilan päivitys epäonnistui.");
+            }
+        };
+
+        // POISTA LASKU
+        window.poistaLasku = async (id) => {
+            if(confirm("Haluatko varmasti poistaa tämän laskun arkistosta? (Tämä ei tuhoa laitteellesi aiemmin ladattua PDF-tiedostoa)")) {
+                try {
+                    await deleteDoc(doc(db, "invoices", id));
+                    haeLaskut(); 
+                } catch (error) {
+                    console.error("Virhe poistossa:", error);
+                }
+            }
+        };
+    </script>
+</body>
+</html>

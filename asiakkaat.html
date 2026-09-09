@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Asiakasrekisteri</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 font-sans pb-10">
+
+    <div class="max-w-md mx-auto space-y-6">
+        <div class="flex justify-between items-center mt-2">
+            <h1 class="text-2xl font-bold text-gray-800">Asiakasrekisteri</h1>
+            <a href="javascript:history.back()" class="text-sm text-blue-600 font-medium hover:underline">← Takaisin</a>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+            <h2 class="text-xs font-bold text-blue-600 uppercase tracking-wider">Lisää uusi asiakas</h2>
+            
+            <form id="asiakasLomake" class="space-y-3">
+                <div class="min-w-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Asiakkaan nimi / Yritys</label>
+                    <input type="text" id="asiakas_nimi" required class="w-full max-w-full min-w-0 bg-gray-50 border border-gray-300 rounded-lg p-2.5 outline-none focus:border-blue-500 focus:bg-white transition box-border block" placeholder="Esim. Matti Meikäläinen">
+                </div>
+                <div class="min-w-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Katuosoite ja postitoimipaikka</label>
+                    <input type="text" id="asiakas_osoite" class="w-full max-w-full min-w-0 bg-gray-50 border border-gray-300 rounded-lg p-2.5 outline-none focus:border-blue-500 focus:bg-white transition box-border block" placeholder="Esim. Esimerkkitie 1, 00100 Helsinki">
+                </div>
+                <div class="min-w-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Y-tunnus (valinnainen)</label>
+                    <input type="text" id="asiakas_ytunnus" class="w-full max-w-full min-w-0 bg-gray-50 border border-gray-300 rounded-lg p-2.5 outline-none focus:border-blue-500 focus:bg-white transition box-border block" placeholder="1234567-8">
+                </div>
+                
+                <button type="submit" id="tallennaBtn" class="w-full bg-blue-600 text-white font-bold rounded-xl p-3 mt-2 hover:bg-blue-700 active:bg-blue-800 transition shadow-sm">
+                    Tallenna asiakas
+                </button>
+            </form>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+            <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Tallennetut asiakkaat</h2>
+            <div id="asiakasLista" class="space-y-3">
+                <p class="text-sm text-gray-500 italic" id="ladataanTeksti">Tarkistetaan tunnistautumista...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+        // --- LISÄÄ OMA FIREBASE CONFIG TÄHÄN ---
+        const firebaseConfig = {
+
+  apiKey: "AIzaSyCLV33Uqrue9BnvnSHEHSxlm6metKkpC5w",
+
+  authDomain: "laskutin-bdba4.firebaseapp.com",
+
+  projectId: "laskutin-bdba4",
+
+  storageBucket: "laskutin-bdba4.firebasestorage.app",
+
+  messagingSenderId: "1042914066308",
+
+  appId: "1:1042914066308:web:5c7b6dc27579203c9da7d1"
+
+};
+
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUid = null;
+
+        const lomake = document.getElementById('asiakasLomake');
+        const lista = document.getElementById('asiakasLista');
+        const tallennaBtn = document.getElementById('tallennaBtn');
+        const ladataanTeksti = document.getElementById('ladataanTeksti');
+
+        // 1. TARKISTETAAN KIRJAUTUMINEN
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUid = user.uid;
+                haeAsiakkaat();
+            } else {
+                // Jos ei kirjautunut, ohjataan kirjautumissivulle
+                window.location.href = "kirjautuminen.html";
+            }
+        });
+
+        // 2. HAE OIKEAN KÄYTTÄJÄN ASIAKKAAT
+        async function haeAsiakkaat() {
+            if (!currentUid) return;
+            try {
+                const q = query(collection(db, "customers"), where("uid", "==", currentUid));
+                const querySnapshot = await getDocs(q);
+                
+                lista.innerHTML = ""; 
+
+                if (querySnapshot.empty) {
+                    lista.innerHTML = '<p class="text-sm text-gray-500 italic">Ei tallennettuja asiakkaita.</p>';
+                    return;
+                }
+
+                querySnapshot.forEach((dokumentti) => {
+                    const data = dokumentti.data();
+                    const id = dokumentti.id;
+
+                    const kortti = document.createElement('div');
+                    kortti.className = "p-3 bg-gray-50 border border-gray-200 rounded-lg flex justify-between items-center";
+                    kortti.innerHTML = `
+                        <div>
+                            <p class="font-bold text-gray-800 text-sm">${data.nimi}</p>
+                            ${data.osoite ? `<p class="text-xs text-gray-500">${data.osoite}</p>` : ''}
+                            ${data.ytunnus ? `<p class="text-xs text-gray-500">Y-tunnus: ${data.ytunnus}</p>` : ''}
+                        </div>
+                        <button class="text-red-500 text-sm font-medium p-2 hover:bg-red-50 rounded-lg transition" onclick="poistaAsiakas('${id}')">Poista</button>
+                    `;
+                    lista.appendChild(kortti);
+                });
+            } catch (error) {
+                console.error("Virhe haussa:", error);
+                ladataanTeksti.innerText = "Virhe tietojen latauksessa.";
+            }
+        }
+
+        // 3. TALLENNA UUSI ASIAKAS (Yhdistetään currentUid:iin)
+        lomake.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUid) return;
+
+            tallennaBtn.innerText = "Tallennetaan...";
+            tallennaBtn.disabled = true;
+
+            const uusiAsiakas = {
+                uid: currentUid,
+                nimi: document.getElementById('asiakas_nimi').value,
+                osoite: document.getElementById('asiakas_osoite').value,
+                ytunnus: document.getElementById('asiakas_ytunnus').value,
+                luotuPvm: new Date()
+            };
+
+            try {
+                await addDoc(collection(db, "customers"), uusiAsiakas);
+                lomake.reset();
+                haeAsiakkaat(); 
+            } catch (error) {
+                alert("Virhe tallennuksessa!");
+                console.error(error);
+            } finally {
+                tallennaBtn.innerText = "Tallenna asiakas";
+                tallennaBtn.disabled = false;
+            }
+        });
+
+        // 4. POISTA ASIAKAS
+        window.poistaAsiakas = async (id) => {
+            if(confirm("Haluatko varmasti poistaa tämän asiakkaan?")) {
+                try {
+                    await deleteDoc(doc(db, "customers", id));
+                    haeAsiakkaat(); 
+                } catch (error) {
+                    console.error("Virhe poistossa:", error);
+                }
+            }
+        };
+    </script>
+</body>
+</html>

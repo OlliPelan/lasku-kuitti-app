@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Omat tiedot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 font-sans pb-10">
+
+    <div class="max-w-md mx-auto space-y-6">
+        <div class="flex justify-between items-center mt-2">
+            <h1 class="text-2xl font-bold text-gray-800">Omat tiedot</h1>
+            <a href="javascript:history.back()" class="text-sm text-blue-600 font-medium hover:underline">← Takaisin</a>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+            <p class="text-sm text-gray-500 mb-4">Näitä tietoja käytetään oletuksena laskuttajan tietoina uusissa laskuissa.</p>
+            
+            <form id="omatTiedotLomake" class="space-y-4">
+                <div class="min-w-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nimi / Yritys</label>
+                    <input type="text" id="oma_nimi" required class="w-full max-w-full min-w-0 bg-gray-50 border border-gray-300 rounded-lg p-2.5 outline-none focus:border-blue-500 focus:bg-white transition box-border block" placeholder="Oma Nimesi">
+                </div>
+                <div class="min-w-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Katuosoite ja postitoimipaikka</label>
+                    <input type="text" id="oma_osoite" class="w-full max-w-full min-w-0 bg-gray-50 border border-gray-300 rounded-lg p-2.5 outline-none focus:border-blue-500 focus:bg-white transition box-border block" placeholder="Esim. Esimerkkitie 1, 00100 Helsinki">
+                </div>
+                <div class="min-w-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Y-tunnus</label>
+                    <input type="text" id="oma_ytunnus" class="w-full max-w-full min-w-0 bg-gray-50 border border-gray-300 rounded-lg p-2.5 outline-none focus:border-blue-500 focus:bg-white transition box-border block" placeholder="1234567-8">
+                </div>
+                <div class="min-w-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">IBAN-tilinumero</label>
+                    <input type="text" id="oma_iban" class="w-full max-w-full min-w-0 bg-gray-50 border border-gray-300 rounded-lg p-2.5 outline-none focus:border-blue-500 focus:bg-white transition box-border block" placeholder="FI00...">
+                </div>
+                
+                <button type="submit" id="tallennaBtn" class="w-full bg-blue-600 text-white font-bold rounded-xl p-3 mt-4 hover:bg-blue-700 active:bg-blue-800 transition shadow-sm">
+                    Tallenna tiedot
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+        // --- LISÄÄ OMA FIREBASE CONFIG TÄHÄN ---
+        const firebaseConfig = {
+
+  apiKey: "AIzaSyCLV33Uqrue9BnvnSHEHSxlm6metKkpC5w",
+
+  authDomain: "laskutin-bdba4.firebaseapp.com",
+
+  projectId: "laskutin-bdba4",
+
+  storageBucket: "laskutin-bdba4.firebasestorage.app",
+
+  messagingSenderId: "1042914066308",
+
+  appId: "1:1042914066308:web:5c7b6dc27579203c9da7d1"
+
+};
+
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUid = null;
+        const lomake = document.getElementById('omatTiedotLomake');
+        const tallennaBtn = document.getElementById('tallennaBtn');
+
+        // TARKISTETAAN KIRJAUTUMINEN
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUid = user.uid;
+                await lataaTiedot();
+            } else {
+                window.location.href = "kirjautuminen.html";
+            }
+        });
+
+        // HAE OLEMASSA OLEVAT TIEDOT LOMAKKEESEEN
+        async function lataaTiedot() {
+            try {
+                const docRef = doc(db, "users", currentUid);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.nimi) document.getElementById('oma_nimi').value = data.nimi;
+                    if (data.osoite) document.getElementById('oma_osoite').value = data.osoite;
+                    if (data.ytunnus) document.getElementById('oma_ytunnus').value = data.ytunnus;
+                    if (data.iban) document.getElementById('oma_iban').value = data.iban;
+                }
+            } catch (error) {
+                console.error("Virhe tietojen latauksessa:", error);
+            }
+        }
+
+        // TALLENNA MUUTOKSET FIRESTOREEN
+        lomake.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUid) return;
+
+            // Validointi
+            const ytunnus = document.getElementById('oma_ytunnus').value.trim();
+            let iban = document.getElementById('oma_iban').value.trim();
+            const ytRegex = /^\d{7}-\d$/;
+
+            if (ytunnus && !ytRegex.test(ytunnus)) {
+                alert("Y-tunnus on virheellinen.\nOikea muoto on esim. 1234567-8");
+                return;
+            }
+
+            if (iban) {
+                iban = iban.replace(/\s+/g, '').toUpperCase();
+                if (!/^FI\d{16}$/.test(iban)) {
+                    alert("IBAN-tilinumero on virheellinen.\nSuomalainen IBAN alkaa 'FI' ja sisältää 16 numeroa.");
+                    return;
+                }
+                iban = iban.match(/.{1,4}/g).join(' '); // Muotoillaan nätiksi
+                document.getElementById('oma_iban').value = iban;
+            }
+
+            tallennaBtn.innerText = "Tallennetaan...";
+            tallennaBtn.disabled = true;
+
+            try {
+                await updateDoc(doc(db, "users", currentUid), {
+                    nimi: document.getElementById('oma_nimi').value,
+                    osoite: document.getElementById('oma_osoite').value,
+                    ytunnus: ytunnus,
+                    iban: iban
+                });
+                
+                tallennaBtn.innerText = "Tallennettu!";
+                tallennaBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                tallennaBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+                
+                setTimeout(() => {
+                    tallennaBtn.innerText = "Tallenna tiedot";
+                    tallennaBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    tallennaBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+                }, 2000);
+
+            } catch (error) {
+                alert("Virhe tallennuksessa!");
+                console.error(error);
+            } finally {
+                tallennaBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

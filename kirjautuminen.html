@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kirjaudu - LaskutusPro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen font-sans">
+
+    <div class="max-w-md w-full mx-auto p-6">
+        
+        <!-- Sisäänkirjautuneen käyttäjän näkymä (Piilotettu aluksi) -->
+        <div id="kirjautunutNakyma" class="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 hidden text-center space-y-6">
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                ✓
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-gray-800">Olet kirjautunut sisään!</h2>
+                <p class="text-sm text-gray-500 mt-1" id="kayttajaSposti"></p>
+            </div>
+            <div class="space-y-3 pt-4">
+                <a href="laskutus.html" class="block w-full bg-blue-600 text-white font-bold rounded-xl p-3 hover:bg-blue-700 transition">
+                    Siirry laskutukseen
+                </a>
+                <button id="kirjauduUlosBtn" class="block w-full bg-gray-50 text-gray-600 font-bold border border-gray-200 rounded-xl p-3 hover:bg-gray-100 transition">
+                    Kirjaudu ulos
+                </button>
+            </div>
+        </div>
+
+        <!-- Kirjautumis/Rekisteröintilomake -->
+        <div id="lomakeNakyma" class="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 space-y-6">
+            <div class="text-center">
+                <h1 class="text-2xl font-bold text-gray-800" id="otsikko">Kirjaudu sisään</h1>
+                <p class="text-sm text-gray-500 mt-1" id="alaotsikko">Tervetuloa takaisin LaskutusPro-palveluun</p>
+            </div>
+            
+            <form id="authLomake" class="space-y-4">
+                <!-- Nimi (Näkyy vain rekisteröityessä) -->
+                <div id="nimiKentta" class="hidden min-w-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Oma Nimesi / Yritys</label>
+                    <input type="text" id="nimi" class="w-full max-w-full min-w-0 bg-gray-50 border border-gray-300 rounded-lg p-3 outline-none focus:border-blue-500 focus:bg-white transition box-border block" placeholder="Matti Meikäläinen">
+                </div>
+
+                <div class="min-w-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sähköposti</label>
+                    <input type="email" id="sposti" required class="w-full max-w-full min-w-0 bg-gray-50 border border-gray-300 rounded-lg p-3 outline-none focus:border-blue-500 focus:bg-white transition box-border block" placeholder="nimi@esimerkki.fi">
+                </div>
+                
+                <div class="min-w-0">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Salasana</label>
+                    <input type="password" id="salasana" required minlength="6" class="w-full max-w-full min-w-0 bg-gray-50 border border-gray-300 rounded-lg p-3 outline-none focus:border-blue-500 focus:bg-white transition box-border block" placeholder="••••••••">
+                </div>
+                
+                <p id="virheViesti" class="text-red-500 text-sm hidden"></p>
+
+                <button type="submit" id="toimintoBtn" class="w-full bg-blue-600 text-white font-bold rounded-xl p-3.5 mt-2 hover:bg-blue-700 active:bg-blue-800 transition shadow-sm">
+                    Kirjaudu
+                </button>
+            </form>
+
+            <div class="text-center pt-2">
+                <button id="vaihdaTilaBtn" class="text-sm text-blue-600 hover:underline font-medium outline-none">
+                    Ei tiliä? Luo uusi tili tästä.
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+        // --- LISÄÄ OMA FIREBASE CONFIG TÄHÄN ---
+        const firebaseConfig = {
+
+  apiKey: "AIzaSyCLV33Uqrue9BnvnSHEHSxlm6metKkpC5w",
+
+  authDomain: "laskutin-bdba4.firebaseapp.com",
+
+  projectId: "laskutin-bdba4",
+
+  storageBucket: "laskutin-bdba4.firebasestorage.app",
+
+  messagingSenderId: "1042914066308",
+
+  appId: "1:1042914066308:web:5c7b6dc27579203c9da7d1"
+
+};
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // UI Elementit
+        const lomake = document.getElementById('authLomake');
+        const otsikko = document.getElementById('otsikko');
+        const alaotsikko = document.getElementById('alaotsikko');
+        const toimintoBtn = document.getElementById('toimintoBtn');
+        const vaihdaTilaBtn = document.getElementById('vaihdaTilaBtn');
+        const nimiKentta = document.getElementById('nimiKentta');
+        const virheViesti = document.getElementById('virheViesti');
+        
+        const lomakeNakyma = document.getElementById('lomakeNakyma');
+        const kirjautunutNakyma = document.getElementById('kirjautunutNakyma');
+        const kayttajaSposti = document.getElementById('kayttajaSposti');
+        const kirjauduUlosBtn = document.getElementById('kirjauduUlosBtn');
+
+        let onRekisteroitymassa = false;
+
+        // Tilan vaihto (Kirjaudu / Luo tili)
+        vaihdaTilaBtn.addEventListener('click', () => {
+            onRekisteroitymassa = !onRekisteroitymassa;
+            virheViesti.classList.add('hidden');
+            
+            if (onRekisteroitymassa) {
+                otsikko.innerText = "Luo tili";
+                alaotsikko.innerText = "Aloita laskutusohjelman käyttö";
+                toimintoBtn.innerText = "Luo tili";
+                vaihdaTilaBtn.innerText = "Onko sinulla jo tili? Kirjaudu sisään.";
+                nimiKentta.classList.remove('hidden');
+                document.getElementById('nimi').required = true;
+            } else {
+                otsikko.innerText = "Kirjaudu sisään";
+                alaotsikko.innerText = "Tervetuloa takaisin LaskutusPro-palveluun";
+                toimintoBtn.innerText = "Kirjaudu";
+                vaihdaTilaBtn.innerText = "Ei tiliä? Luo uusi tili tästä.";
+                nimiKentta.classList.add('hidden');
+                document.getElementById('nimi').required = false;
+            }
+        });
+
+        // Lomakkeen lähetys
+        lomake.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            virheViesti.classList.add('hidden');
+            toimintoBtn.disabled = true;
+            toimintoBtn.innerText = "Odota...";
+
+            const sposti = document.getElementById('sposti').value;
+            const salasana = document.getElementById('salasana').value;
+            const nimi = document.getElementById('nimi').value;
+
+            try {
+                if (onRekisteroitymassa) {
+                    // LUO TILI
+                    const userCredential = await createUserWithEmailAndPassword(auth, sposti, salasana);
+                    const user = userCredential.user;
+                    
+                    // Tallenna käyttäjän tiedot Firestoreen ('users' kokoelmaan)
+                    // Tässä käytetään setDoc + doc -komentoja, jotta dokumentin ID:ksi tulee käyttäjän UID
+                    await setDoc(doc(db, "users", user.uid), {
+                        nimi: nimi,
+                        sposti: sposti,
+                        luotuPvm: new Date()
+                    });
+                    
+                } else {
+                    // KIRJAUDU SISÄÄN
+                    await signInWithEmailAndPassword(auth, sposti, salasana);
+                }
+            } catch (error) {
+                console.error(error);
+                virheViesti.innerText = error.message.includes('auth/invalid-credential') ? 
+                    'Väärä sähköposti tai salasana.' : 
+                    (error.message.includes('auth/email-already-in-use') ? 'Sähköposti on jo käytössä.' : 'Tapahtui virhe. Yritä uudelleen.');
+                virheViesti.classList.remove('hidden');
+            } finally {
+                toimintoBtn.disabled = false;
+                toimintoBtn.innerText = onRekisteroitymassa ? "Luo tili" : "Kirjaudu";
+            }
+        });
+
+        // Kirjaudu ulos
+        kirjauduUlosBtn.addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        // Kuuntele käyttäjän tilan muutoksia (Kirjautunut / Uloskirjautunut)
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Käyttäjä on kirjautunut
+                lomakeNakyma.classList.add('hidden');
+                kirjautunutNakyma.classList.remove('hidden');
+                kayttajaSposti.innerText = user.email;
+            } else {
+                // Käyttäjä ei ole kirjautunut
+                kirjautunutNakyma.classList.add('hidden');
+                lomakeNakyma.classList.remove('hidden');
+                lomake.reset();
+            }
+        });
+    </script>
+</body>
+</html>
