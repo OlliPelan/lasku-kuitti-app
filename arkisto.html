@@ -7,23 +7,35 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
-        // Estää iPhonen Safari-selaimen välimuistibugin takaisin-pyyhkäisyssä
+        // Estää iPhonen välimuistibugin takaisin-pyyhkäisyssä
         window.addEventListener("pageshow", function(event) {
             if (event.persisted) window.location.reload();
         });
     </script>
 </head>
-<body class="bg-gray-100 flex flex-col min-h-screen font-sans">
+<body class="bg-gray-100 p-4 font-sans pb-10 flex flex-col min-h-screen">
 
-    <!-- Pääsisältö, joka venyy ja työntää footerin alas -->
-    <div class="max-w-2xl mx-auto w-full flex-grow p-4 space-y-6">
+    <!-- Pääkääre, kapea asettelu -->
+    <div class="max-w-md mx-auto w-full flex-grow space-y-6">
         
-        <!-- Yläpalkki ja navigointi -->
+        <!-- Yläpalkki (ILMAN LOGOA) -->
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 mb-6 gap-4">
             <h1 class="text-2xl font-bold text-gray-800">Arkisto</h1>
             
             <div class="flex gap-3 items-center flex-wrap">
-               <a href="javascript:history.back()" class="text-sm text-blue-600 font-medium hover:underline">← Takaisin</a>
+                <a href="laskutus.html" class="text-sm text-blue-600 font-medium hover:underline">Lasku</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <a href="kuitti.html" class="text-sm text-blue-600 font-medium hover:underline">Kuitti</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <a href="omat_tiedot.html" class="text-sm text-blue-600 font-medium hover:underline">Omat tiedot</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <a href="asiakkaat.html" class="text-sm text-blue-600 font-medium hover:underline">Asiakkaat</a>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                
+                <button id="kirjauduUlosBtn" class="text-sm text-red-500 font-medium hover:underline outline-none">Kirjaudu ulos</button>
             </div>
         </div>
 
@@ -42,9 +54,9 @@
         </div>
     </div>
     
-    <!-- Footer keskitettynä alas -->
-    <footer class="w-full text-center mt-auto mb-6 text-xs text-gray-500">
-        <img src="./lasquitos logo.png" alt="logo" style="display: block; margin: 0 auto; width: 50%;">
+    <!-- Footer logolla -->
+    <footer class="w-full text-center mt-8 mb-4 text-xs text-gray-500">
+         <img src="./lasquitos logo.png" alt="logo" style="display: block; margin: 0 auto; width: 50%;">
         <a href="tietosuoja.html" class="hover:text-blue-600 hover:underline transition">Tietosuojalauseke</a>
         <p class="mt-1">&copy; OK AV 2026</p>
     </footer>
@@ -98,7 +110,6 @@
             signOut(auth);
         });
 
-        // HAE OMAT TIEDOT
         async function lataaMyyjanTiedot() {
             try {
                 const userDoc = await getDoc(doc(db, "users", currentUid));
@@ -110,7 +121,6 @@
             }
         }
 
-        // HAE ARKISTO
         async function haeArkisto() {
             if (!currentUid) return;
             try {
@@ -144,7 +154,7 @@
 
                 arkistoDataList.forEach((item) => {
                     const kortti = document.createElement('div');
-                    kortti.className = "p-4 bg-gray-50 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4";
+                    kortti.className = "p-4 bg-gray-50 border border-gray-200 rounded-xl";
                     
                     const summaTurvallinen = item.yhteensa || 0;
                     const muotoiltuSumma = summaTurvallinen.toFixed(2).replace('.', ',') + ' €';
@@ -152,53 +162,54 @@
                     if (item.tyyppi === 'lasku') {
                         const onMaksettu = item.status === 'maksettu';
                         const tilaBadge = onMaksettu 
-                            ? `<span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg uppercase">Maksettu</span>`
-                            : `<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-lg uppercase">Avoin</span>`;
+                            ? `<span class="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase">Maksettu</span>`
+                            : `<span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold rounded uppercase">Avoin</span>`;
                         
-                        // Napit käyttävät nyt data-action attribuutteja inline onclickin sijaan
                         const tilaNappi = onMaksettu
-                            ? `<button class="text-sm text-gray-500 hover:text-gray-700 hover:underline outline-none" data-action="tila" data-id="${item.id}" data-tila="avoin">Palauta avoimeksi</button>`
-                            : `<button class="text-sm text-blue-600 font-medium hover:text-blue-800 hover:underline outline-none" data-action="tila" data-id="${item.id}" data-tila="maksettu">Merkitse maksetuksi</button>`;
+                            ? `<button class="text-xs text-gray-500 hover:text-gray-700 hover:underline outline-none" data-action="tila" data-id="${item.id}" data-tila="avoin">Palauta avoimeksi</button>`
+                            : `<button class="text-xs text-blue-600 font-medium hover:text-blue-800 hover:underline outline-none" data-action="tila" data-id="${item.id}" data-tila="maksettu">Merkitse maksetuksi</button>`;
 
                         kortti.innerHTML = `
-                            <div>
-                                <div class="flex items-center gap-2 mb-1">
-                                    <p class="font-bold text-gray-800">Lasku #${item.laskuNro}</p>
-                                    ${tilaBadge}
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <p class="font-bold text-gray-800 text-sm">Lasku #${item.laskuNro}</p>
+                                        ${tilaBadge}
+                                    </div>
+                                    <p class="text-sm text-gray-600">${item.asiakas}</p>
+                                    <p class="text-xs text-gray-500 mt-1">Eräpäivä: ${muotoilePvmTekstiksi(item.erapaiva)}</p>
                                 </div>
-                                <p class="text-sm text-gray-600">${item.asiakas}</p>
-                                <p class="text-xs text-gray-500 mt-1">Eräpäivä: ${muotoilePvmTekstiksi(item.erapaiva)} <span class="mx-1">|</span> Viite: ${item.viitenumero}</p>
+                                <div class="text-right">
+                                    <p class="font-bold text-lg text-gray-800">${muotoiltuSumma}</p>
+                                </div>
                             </div>
-                            <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2">
-                                <p class="font-bold text-lg text-gray-800">${muotoiltuSumma}</p>
-                                <div class="flex items-center gap-3">
-                                    <button class="text-sm font-bold text-gray-500 hover:text-blue-600 hover:underline outline-none" data-action="pdf" data-id="${item.id}">↓ Lataa PDF</button>
-                                    <span class="text-gray-300">|</span>
-                                    ${tilaNappi}
-                                    <span class="text-gray-300">|</span>
-                                    <button class="text-sm text-red-500 hover:underline outline-none" data-action="poista" data-id="${item.id}" data-col="invoices">Poista</button>
-                                </div>
+                            <div class="flex items-center gap-3 pt-3 border-t border-gray-100 flex-wrap">
+                                <button class="text-xs font-bold text-gray-500 hover:text-blue-600 hover:underline outline-none" data-action="pdf" data-id="${item.id}">↓ Lataa PDF</button>
+                                <span class="text-gray-300">|</span>
+                                ${tilaNappi}
+                                <span class="text-gray-300">|</span>
+                                <button class="text-xs text-red-500 hover:underline outline-none" data-action="poista" data-col="invoices" data-id="${item.id}">Poista</button>
                             </div>
                         `;
                     } else {
                         kortti.innerHTML = `
-                            <div>
-                                <div class="flex items-center gap-2 mb-1">
-                                    <p class="font-bold text-gray-800">Kuitti #${item.kuittiNro}</p>
-                                    <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-lg uppercase">Kuitti</span>
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <p class="font-bold text-gray-800 text-sm">Kuitti #${item.kuittiNro}</p>
+                                        <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded uppercase">Kuitti</span>
+                                    </div>
+                                    <p class="text-sm text-gray-600">${item.ostaja}</p>
+                                    <p class="text-xs text-gray-500 mt-1">Maksettu: ${muotoilePvmTekstiksi(item.tapahtumaPvm)}</p>
                                 </div>
-                                <p class="text-sm text-gray-600">${item.ostaja}</p>
-                                <p class="text-xs text-gray-500 mt-1">Maksettu: ${muotoilePvmTekstiksi(item.tapahtumaPvm)} <span class="mx-1">|</span> Tapa: ${item.maksutapa}</p>
+                                <div class="text-right">
+                                    <p class="font-bold text-lg text-gray-800">${muotoiltuSumma}</p>
+                                </div>
                             </div>
-                            <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2">
-                                <p class="font-bold text-lg text-gray-800">${muotoiltuSumma}</p>
-                                <div class="flex items-center gap-3">
-                                    <button class="text-sm font-bold text-gray-500 hover:text-blue-600 hover:underline outline-none" data-action="pdf" data-id="${item.id}">↓ Lataa PDF</button>
-                                    <span class="text-gray-300">|</span>
-                                    <span class="text-sm text-green-600 font-medium">✓ Maksettu</span>
-                                    <span class="text-gray-300">|</span>
-                                    <button class="text-sm text-red-500 hover:underline outline-none" data-action="poista" data-id="${item.id}" data-col="receipts">Poista</button>
-                                </div>
+                            <div class="flex items-center gap-3 pt-3 border-t border-gray-100 flex-wrap">
+                                <button class="text-xs font-bold text-gray-500 hover:text-blue-600 hover:underline outline-none" data-action="pdf" data-id="${item.id}">↓ Lataa PDF</button>
+                                <span class="text-gray-300">|</span>
+                                <button class="text-xs text-red-500 hover:underline outline-none" data-action="poista" data-col="receipts" data-id="${item.id}">Poista</button>
                             </div>
                         `;
                     }
@@ -210,10 +221,10 @@
             }
         }
 
-        // --- IPHONE-YHTEENSOPIVA NAPPIEN KÄSITTELIJÄ (Event Delegation) ---
+        // TÄMÄ KÄSITTELEE KAIKKI NAPIT IPHONE-YHTEENSOPIVASTI
         lista.addEventListener('click', async (e) => {
             const btn = e.target.closest('button');
-            if (!btn) return; // Jos klikattiin tyhjää kohtaa, ohitetaan
+            if (!btn) return;
             
             const action = btn.getAttribute('data-action');
             const id = btn.getAttribute('data-id');
@@ -224,7 +235,7 @@
                     await updateDoc(doc(db, "invoices", id), { status: uusiTila });
                     haeArkisto(); 
                 } catch (error) {
-                    console.error("Virhe:", error);
+                    console.error("Virhe tilan vaihdossa:", error);
                 }
             } 
             else if (action === 'poista') {
@@ -244,7 +255,6 @@
             }
         });
 
-        // APUFUNKTIO PÄIVÄMÄÄRÄLLE YYYY-MM-DD -> DD.MM.YYYY
         function muotoilePvmTekstiksi(dateString) {
             if (!dateString) return "";
             if (dateString.includes('-')) {
