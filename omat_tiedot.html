@@ -48,6 +48,15 @@
                     Tallenna tiedot
                 </button>
             </form>
+
+            <!-- Tilin poisto -osio -->
+            <div class="mt-8 pt-6 border-t border-gray-100">
+                <button type="button" id="poistaTiliBtn" class="w-full bg-white text-red-500 font-bold border border-red-200 rounded-xl p-3 hover:bg-red-50 active:bg-red-100 transition shadow-sm">
+                    Poista tili
+                </button>
+                <p class="text-xs text-gray-400 mt-2 text-center">Tämä poistaa käyttäjätilisi ja omat tietosi pysyvästi.</p>
+            </div>
+
         </div>
     </div>
 
@@ -60,11 +69,13 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+        // LISÄTTY: deleteUser import
+        import { getAuth, onAuthStateChanged, deleteUser } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
+        // LISÄTTY: deleteDoc import
+        import { getFirestore, doc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
 
         // --- LISÄÄ OMA FIREBASE CONFIG TÄHÄN ---
-        const firebaseConfig = {
+       const firebaseConfig = {
 
   apiKey: "AIzaSyCLV33Uqrue9BnvnSHEHSxlm6metKkpC5w",
 
@@ -80,7 +91,6 @@
 
 };
 
-
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -88,6 +98,7 @@
         let currentUid = null;
         const lomake = document.getElementById('omatTiedotLomake');
         const tallennaBtn = document.getElementById('tallennaBtn');
+        const poistaTiliBtn = document.getElementById('poistaTiliBtn'); // Nappi haettu
 
         // TARKISTETAAN KIRJAUTUMINEN
         onAuthStateChanged(auth, async (user) => {
@@ -168,6 +179,33 @@
                 console.error(error);
             } finally {
                 tallennaBtn.disabled = false;
+            }
+        });
+
+        // LISÄTTY: TILIN POISTAMINEN
+        poistaTiliBtn.addEventListener('click', async () => {
+            if(confirm("Haluatko varmasti poistaa tilisi? Tätä toimintoa ei voi peruuttaa ja kaikki tietosi menetetään.")) {
+                try {
+                    const user = auth.currentUser;
+                    if (user) {
+                        // 1. Poistetaan käyttäjän omat tiedot Firestoresta
+                        await deleteDoc(doc(db, "users", currentUid));
+                        
+                        // 2. Poistetaan itse Firebase Auth -käyttäjätili
+                        await deleteUser(user);
+                        
+                        alert("Tili poistettu onnistuneesti.");
+                        window.location.href = "kirjautuminen.html";
+                    }
+                } catch (error) {
+                    console.error("Virhe tilin poistossa:", error);
+                    // Jos käyttäjän edellisestä kirjautumisesta on liian pitkä aika, Firebase estää tilin poiston
+                    if (error.code === 'auth/requires-recent-login') {
+                        alert("Turvallisuussyistä tilin poistaminen vaatii, että olet kirjautunut sisään aivan äskettäin.\n\nKirjaudu ulos, kirjaudu takaisin sisään ja yritä poistoa uudelleen.");
+                    } else {
+                        alert("Tapahtui virhe tilin poistossa.");
+                    }
+                }
             }
         });
     </script>
