@@ -18,25 +18,10 @@
     <!-- Pääkääre, kapea asettelu -->
     <div class="max-w-md mx-auto w-full flex-grow space-y-6">
         
-        <!-- Yläpalkki (ILMAN LOGOA) -->
+        <!-- Yläpalkki -->
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 mb-6 gap-4">
             <h1 class="text-2xl font-bold text-gray-800">Arkisto</h1>
-            
-            <div class="flex gap-3 items-center flex-wrap">
-                <a href="laskutus.html" class="text-sm text-blue-600 font-medium hover:underline">Lasku</a>
-                <span class="text-gray-300 hidden sm:inline">|</span>
-                
-                <a href="kuitti.html" class="text-sm text-blue-600 font-medium hover:underline">Kuitti</a>
-                <span class="text-gray-300 hidden sm:inline">|</span>
-                
-                <a href="omat_tiedot.html" class="text-sm text-blue-600 font-medium hover:underline">Omat tiedot</a>
-                <span class="text-gray-300 hidden sm:inline">|</span>
-                
-                <a href="asiakkaat.html" class="text-sm text-blue-600 font-medium hover:underline">Asiakkaat</a>
-                <span class="text-gray-300 hidden sm:inline">|</span>
-                
-                <button id="kirjauduUlosBtn" class="text-sm text-red-500 font-medium hover:underline outline-none">Kirjaudu ulos</button>
-            </div>
+            <a href="javascript:history.back()" class="text-sm text-blue-600 font-medium hover:underline">← Takaisin</a>
         </div>
 
         <!-- Arkistolista -->
@@ -54,9 +39,9 @@
         </div>
     </div>
     
-    <!-- Footer logolla -->
+    <!-- Footer -->
     <footer class="w-full text-center mt-8 mb-4 text-xs text-gray-500">
-         <img src="./lasquitos logo.png" alt="logo" style="display: block; margin: 0 auto; width: 50%;">
+         <img src="./lasquitos logo.png" alt="logo" style="display: block; margin: 0 auto; width: 200px;">
         <a href="tietosuoja.html" class="hover:text-blue-600 hover:underline transition">Tietosuojalauseke</a>
         <p class="mt-1">&copy; OK AV 2026</p>
     </footer>
