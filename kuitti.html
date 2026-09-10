@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Luo Kuitti</title>
     <script>
-    // Estää iPhonen välimuistibugin "takaisin"-nappia käytettäessä
+    // Lataa aina sivun uudelleen
     window.addEventListener("pageshow", function(event) {
         if (event.persisted) {
             window.location.reload();
@@ -16,11 +16,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="bg-gray-100 p-4 font-sans pb-10">
-
+ 
     <div class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+      
         <!-- Yläpalkki ja navigointi -->
              <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
-            <h1 class="text-2xl font-bold text-gray-800">Uusi kuitti</h1>
+            <h1 class="text-2xl font-bold text-gray-800">Luo kuitti</h1>
             
             <div class="flex gap-3 items-center flex-wrap">
                 <a href="laskutus.html" class="text-sm text-blue-600 font-medium hover:underline">Lasku</a>
@@ -149,6 +150,7 @@
 
     <!-- Footer -->
     <footer class="w-full text-center mt-8 mb-4 text-xs text-gray-500">
+         <img src="./lasquitos logo.png" alt="logo" style="display: block; margin: 0 auto; width: 50%;">
         <a href="tietosuoja.html" class="hover:text-blue-600 hover:underline transition">Tietosuojalauseke</a>
         <p class="mt-1">&copy; OK AV 2026</p>
     </footer>
