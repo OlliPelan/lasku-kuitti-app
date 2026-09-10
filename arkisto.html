@@ -91,9 +91,13 @@
             }
         });
 
-        document.getElementById('kirjauduUlosBtn').addEventListener('click', () => {
-            signOut(auth);
-        });
+        // KORJATTU: Tarkistetaan onko nappi olemassa ennen sen käyttöä
+        const ulosBtn = document.getElementById('kirjauduUlosBtn');
+        if (ulosBtn) {
+            ulosBtn.addEventListener('click', () => {
+                signOut(auth);
+            });
+        }
 
         async function lataaMyyjanTiedot() {
             try {
